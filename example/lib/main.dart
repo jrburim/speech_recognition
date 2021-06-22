@@ -11,6 +11,7 @@ const languages = const [
   const Language('Pусский', 'ru_RU'),
   const Language('Italiano', 'it_IT'),
   const Language('Español', 'es_ES'),
+  const Language('Portugues', 'pt_BR'),
 ];
 
 class Language {
@@ -26,7 +27,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  SpeechRecognition _speech;
+  late SpeechRecognition _speech;
 
   bool _speechRecognitionAvailable = false;
   bool _isListening = false;
@@ -83,19 +84,32 @@ class _MyAppState extends State<MyApp> {
                           color: Colors.grey.shade200,
                           child: new Text(transcription))),
                   _buildButton(
-                    onPressed: _speechRecognitionAvailable && !_isListening
-                        ? () => start()
-                        : null,
+                    onPressed: () {
+                      if (_speechRecognitionAvailable && !_isListening) start();
+                    },
                     label: _isListening
                         ? 'Listening...'
                         : 'Listen (${selectedLang.code})',
                   ),
                   _buildButton(
-                    onPressed: _isListening ? () => cancel() : null,
+                    onPressed: () {
+                      if (_speechRecognitionAvailable && !_isListening)
+                        startAudio();
+                    },
+                    label: _isListening
+                        ? 'Processing Audio...'
+                        : 'Process audio (${selectedLang.code})',
+                  ),
+                  _buildButton(
+                    onPressed: () {
+                      if (_isListening) cancel();
+                    },
                     label: 'Cancel',
                   ),
                   _buildButton(
-                    onPressed: _isListening ? () => stop() : null,
+                    onPressed: () {
+                      if (_isListening) stop();
+                    },
                     label: 'Stop',
                   ),
                 ],
@@ -117,20 +131,30 @@ class _MyAppState extends State<MyApp> {
     setState(() => selectedLang = lang);
   }
 
-  Widget _buildButton({String label, VoidCallback onPressed}) => new Padding(
-      padding: new EdgeInsets.all(12.0),
-      child: new RaisedButton(
-        color: Colors.cyan.shade600,
-        onPressed: onPressed,
-        child: new Text(
-          label,
-          style: const TextStyle(color: Colors.white),
-        ),
-      ));
+  Widget _buildButton(
+          {required String label, required VoidCallback onPressed}) =>
+      new Padding(
+          padding: new EdgeInsets.all(12.0),
+          child: new RaisedButton(
+            color: Colors.cyan.shade600,
+            onPressed: onPressed,
+            child: new Text(
+              label,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ));
 
   void start() => _speech
       .listen(locale: selectedLang.code)
       .then((result) => print('_MyAppState.start => result $result'));
+
+  void startAudio() {
+    var audioPath =
+        "/Users/admin/Desktop/AudioDev/AUDIO-2019-06-17-08-27-48.m4a";
+    _speech
+        .listenAudio(audioPath: audioPath, locale: selectedLang.code)
+        .then((result) => print('_MyAppState.startAudio => result $result'));
+  }
 
   void cancel() =>
       _speech.cancel().then((result) => setState(() => _isListening = result));
@@ -150,9 +174,16 @@ class _MyAppState extends State<MyApp> {
 
   void onRecognitionStarted() => setState(() => _isListening = true);
 
-  void onRecognitionResult(String text) => setState(() => transcription = text);
+  void onRecognitionResult(RecognitionInfo result) {
+    setState(() => transcription = result.text);
+  }
 
-  void onRecognitionComplete() => setState(() => _isListening = false);
+  void onRecognitionComplete(RecognitionInfo result) {
+    setState(() {
+      _isListening = false;
+      transcription = result.text;
+    });
+  }
 
   void errorHandler() => activateSpeechRecognizer();
 }
